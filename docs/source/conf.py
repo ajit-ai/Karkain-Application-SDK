@@ -1,4 +1,4 @@
-# Karkain Application SDK Documentation Configuration.
+# Karkain Application SDK documentation configuration.
 project = "Karkain Application SDK"
 author = "Ajit Kumar"
 copyright = "2026, Ajit Kumar"

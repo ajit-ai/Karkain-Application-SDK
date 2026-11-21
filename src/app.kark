@@ -10,23 +10,23 @@ import std.log
 import std.env
 
 func app_log_info(msg) {
-    log_info(msg)
+    return log_info(msg)
 }
 
 func app_log_warn(msg) {
-    log_warn(msg)
+    return log_warn(msg)
 }
 
 func app_log_error(msg) {
-    log_error(msg)
+    return log_error(msg)
 }
 
 func app_log_debug(msg) {
-    log_debug(msg)
+    return log_debug(msg)
 }
 
 func app_log_with_time(level, msg) {
-    log_with_time(level, msg)
+    return log_with_time(level, msg)
 }
 
 func app_config_get(name, default_val) {

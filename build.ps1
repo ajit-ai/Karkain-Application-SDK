@@ -1,4 +1,4 @@
-# Karkain Application SDK - build entry point (Windows PowerShell 5.1).
+# Karkain Application SDK build entry point (Windows PowerShell 5.1).
 $ErrorActionPreference = "Stop"
 
 $karkain = "F:\Codes\Git\Karkain\karkain.exe"
