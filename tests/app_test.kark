@@ -1,0 +1,25 @@
+// Karkain Application SDK - focused tests.
+
+func double(x) {
+    return x * 2
+}
+
+func test_app_math() {
+    assert(double(2) == 4)
+    assert(double(0) == 0)
+}
+
+func test_app_logging_adapter() {
+    app_log_info("app_test_info")
+    app_log_debug("app_test_debug")
+}
+
+func test_app_config_default_value() {
+    let v = app_config_get("KARKAIN_AUDIT_UNSET_XYZ", "fallback-value")
+    assert(v == "fallback-value")
+}
+
+func test_app_config_present_value() {
+    let v = app_config_get("PATH", "/usr/bin:/bin")
+    assert(len(v) > 0)
+}

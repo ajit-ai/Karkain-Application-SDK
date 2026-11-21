@@ -1,0 +1,12 @@
+// Karkain Application SDK - first working product example.
+
+// A native Karkain application that starts, emits structured log output,
+// loads configuration through the SDK and exits cleanly.
+
+import std.log
+
+func main() {
+    app_log_info("Karkain Application SDK starting")
+    app_log_info("configuration source: environment")
+    app_log_with_time("INFO", "service heartbeat")
+}

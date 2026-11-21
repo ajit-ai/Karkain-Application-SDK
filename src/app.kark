@@ -1,0 +1,38 @@
+// Karkain Application SDK - application module.
+//
+// Initial implementation boundary for the first working product. This module
+// wires the verified Karkain capability surface (std.log, std.env) into the
+// shape an application needs: structured logging and environment-driven
+// configuration. It does not claim lifecycle / service / persistence
+// capabilities that are BLOCKED or NOT-TESTED on the Karkain v1.2.x line.
+
+import std.log
+import std.env
+
+func app_log_info(msg) {
+    log_info(msg)
+}
+
+func app_log_warn(msg) {
+    log_warn(msg)
+}
+
+func app_log_error(msg) {
+    log_error(msg)
+}
+
+func app_log_debug(msg) {
+    log_debug(msg)
+}
+
+func app_log_with_time(level, msg) {
+    log_with_time(level, msg)
+}
+
+func app_config_get(name, default_val) {
+    return env_get_or(name, default_val)
+}
+
+func app_config_has(name) {
+    return env_has(name)
+}
