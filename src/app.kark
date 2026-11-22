@@ -204,6 +204,38 @@ func app_diagnostic_status(ctx, event_id) {
     return 0 // diagnostics disabled
 }
 
+// Debug diagnostic event identifiers. These use a separate namespace from
+// lifecycle event IDs (1-5) to avoid conflicts.
+const (
+    debug_created        = 101
+    debug_started        = 102
+    debug_before_dispatch = 103
+    debug_after_dispatch  = 104
+    debug_shutdown       = 105
+)
+
+// Extended diagnostic API: return a diagnostic status code for the given
+// debug event and context. Returns 1 if debug is enabled and the diagnostic
+// identifier is recognized. Returns 0 if debug is disabled or the identifier
+// is unrecognized.
+func app_diagnostic_event_status(ctx, diagnostic_event_id) {
+    let enabled = ctx.debug
+    if (enabled) {
+        if (diagnostic_event_id == debug_created) {
+            return 1 // debug created
+        } else if (diagnostic_event_id == debug_started) {
+            return 1 // debug started
+        } else if (diagnostic_event_id == debug_before_dispatch) {
+            return 1 // debug before dispatch
+        } else if (diagnostic_event_id == debug_after_dispatch) {
+            return 1 // debug after dispatch
+        } else if (diagnostic_event_id == debug_shutdown) {
+            return 1 // debug shutdown
+        }
+    }
+    return 0 // diagnostics disabled
+}
+
 // AppConfig represents a configuration profile for application execution.
 // Instances are immutable and can be converted to AppContext for runtime use.
 type AppConfig struct { name string, port int, service_id int, service_input int, debug bool }

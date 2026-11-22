@@ -286,8 +286,47 @@ func main() {
         },
     }
 
-    // Note: the example process cannot set environment variables for itself;
-    // each scenario requires the host shell to set the vars before running.
-    // The example demonstrates the API patterns; actual execution requires
-    // the host PowerShell session to set the environment variables.
-}
+    // Scenario D: Debug-enabled diagnostic events.
+    // Inspect all five debug diagnostic identifiers with debug enabled.
+    let cfgD = app_config_default()
+    let validD = app_config_validate(cfgD)
+    let ctxD = app_config_to_context(cfgD)
+    // Debug enabled by using the debug-aware constructor
+    let ctxD_debug = app_context_create_debug("karkain-debug-demo", 8083, 1, 5, true)
+    println("debug enabled (explicit): ", app_debug_enabled(ctxD_debug))
+    // Inspect all five debug diagnostic IDs with debug enabled
+    let d1 = app_diagnostic_event_status(ctxD_debug, debug_created)
+    let d2 = app_diagnostic_event_status(ctxD_debug, debug_started)
+    let d3 = app_diagnostic_event_status(ctxD_debug, debug_before_dispatch)
+    let d4 = app_diagnostic_event_status(ctxD_debug, debug_after_dispatch)
+    let d5 = app_diagnostic_event_status(ctxD_debug, debug_shutdown)
+    let d_unknown = app_diagnostic_event_status(ctxD_debug, 999)
+    println("debug created (101): ", d1)
+    println("debug started (102): ", d2)
+    println("debug before-dispatch (103): ", d3)
+    println("debug after-dispatch (104): ", d4)
+    println("debug shutdown (105): ", d5)
+    println("debug unknown ID (999): ", d_unknown)
+
+    // Scenario E: Debug-disabled diagnostic events.
+    // Inspect all five debug diagnostic identifiers with debug disabled.
+    println("=== scenario E: debug-disabled diagnostics ===")
+    let cfgE = app_config_default()
+    let validE = app_config_validate(cfgE)
+    let ctxE = app_config_to_context(cfgE)
+    let ctxE_disable = app_context_create_debug("karkain-debug-demo", 8083, 1, 5, false)
+    println("debug enabled (explicit): ", app_debug_enabled(ctxE_disable))
+    let de1 = app_diagnostic_event_status(ctxE_disable, debug_created)
+    let de2 = app_diagnostic_event_status(ctxE_disable, debug_started)
+    let de3 = app_diagnostic_event_status(ctxE_disable, debug_before_dispatch)
+    let de4 = app_diagnostic_event_status(ctxE_disable, debug_after_dispatch)
+    let de5 = app_diagnostic_event_status(ctxE_disable, debug_shutdown)
+    let de_unknown = app_diagnostic_event_status(ctxE_disable, 777)
+    println("debug created (101): ", de1)
+    println("debug started (102): ", de2)
+    println("debug before-dispatch (103): ", de3)
+    println("debug after-dispatch (104): ", de4)
+    println("debug shutdown (105): ", de5)
+    println("debug unknown ID (777): ", de_unknown)
+
+// Note: the example process cannot set environment variables for itself;
