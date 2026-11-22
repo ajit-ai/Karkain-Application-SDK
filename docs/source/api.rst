@@ -17,6 +17,9 @@ The first implementation slice adds the smallest reliable lifecycle surface on
 top of verified Karkain v1.2.x language features (struct state, functions with
 inferred returns, ``Result`` values, ``match``).
 
+* ``app_run(name, port)`` -- orchestrate the verified lifecycle slice:
+  create state -> start -> run service -> shutdown, returning the final
+  service outcome (``Ok`` payload on success, ``Err`` on controlled failure).
 * ``app_create(name, port)`` -- create application state
   (``AppState{ name, port, started }`` with ``started = false``).
 * ``app_start(state)`` -- transition state to ``started = true``.
@@ -28,7 +31,7 @@ inferred returns, ``Result`` values, ``match``).
 Logging and configuration API
 -----------------------------
 
-* ``app_log_info(msg)`` / ``app_log_warn(msg)`` / ``app_log_error(msg) /
+* ``app_log_info(msg)`` / ``app_log_warn(msg)`` / ``app_log_error(msg)`` /
   ``app_log_debug(msg)`` / ``app_log_with_time(level, msg)`` -- structured
   logging wrappers over the verified ``std.log`` capability.
 * ``app_config_get(name, default_val)`` / ``app_config_has(name)`` -- environment

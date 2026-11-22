@@ -35,6 +35,14 @@ func app_service(n) {
     return Ok(n * 2)
 }
 
+func app_run(name, port) {
+    let s = app_create(name, port)
+    let s2 = app_start(s)
+    let outcome = app_service(21)
+    let s3 = app_shutdown(s2)
+    return outcome
+}
+
 func app_log_info(msg) {
     return log_info(msg)
 }

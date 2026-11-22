@@ -1,7 +1,8 @@
 // Karkain Application SDK - first working product example.
 
-// A native Karkain application that creates state, loads configuration,
-// logs startup, runs a service, reports a controlled failure and shuts down.
+// A native Karkain application that orchestrates the verified lifecycle
+// (create -> start -> service -> shutdown) through app_run and handles the
+// final outcome.
 
 import std.log
 
@@ -19,10 +20,6 @@ func app_shutdown(s AppState) {
     return AppState{ name: s.name, port: s.port, started: false }
 }
 
-func app_config_name(s AppState) {
-    return s.name
-}
-
 func app_service(n) {
     if (n < 0) { return Err("service failure: negative input") }
     return Ok(n * 2)
@@ -36,24 +33,18 @@ func app_log_error(msg) {
     return log_error(msg)
 }
 
-func app_log_with_time(level, msg) {
-    return log_with_time(level, msg)
+func app_run(name, port) {
+    let s = app_create(name, port)
+    let s2 = app_start(s)
+    let outcome = app_service(21)
+    let s3 = app_shutdown(s2)
+    return outcome
 }
 
 func main() {
-    let s = app_create("karkain-app", 8080)
-    let app_name = app_config_name(s)
-    println(app_name)
-    app_log_info("Karkain Application SDK starting")
-    let s2 = app_start(s)
-    app_log_with_time("INFO", "application started")
-    let v = app_service(21)
-    println(v)
-    let failed = app_service(-5)
-    match failed {
-        Ok(v2) => { app_log_info("unexpected success") },
+    let outcome = app_run("karkain-app", 8080)
+    match outcome {
+        Ok(v) => { app_log_info("application service completed") },
         Err(e) => { app_log_error(e) },
     }
-    let s3 = app_shutdown(s2)
-    app_log_info("application shutdown complete")
 }
