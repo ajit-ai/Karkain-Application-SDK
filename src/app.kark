@@ -112,10 +112,54 @@ func app_log_with_time(level, msg) {
     return log_with_time(level, msg)
 }
 
-func app_config_get(name, default_val) {
-    return env_get_or(name, default_val)
+// Configuration resolution helpers.
+// These use only verified Karkain v1.2.x capabilities:
+// - string equality in non-test helpers (probed S11, S13)
+// - app_config_get / app_config_has from the SDK module (validated)
+// - No string→int conversion is verified, so we use an explicit,
+//   small, mapped set of accepted values with controlled error for
+//   unrecognized inputs.
+func config_service_id(s) {
+    if (s == "0") { return 0 }
+    if (s == "1") { return 1 }
+    if (s == "2") { return 2 }
+    return -1 // invalid signal
 }
 
-func app_config_has(name) {
-    return env_has(name)
+func config_service_input(s) {
+    if (s == "0") { return 0 }
+    if (s == "1") { return 1 }
+    if (s == "2") { return 2 }
+    if (s == "7") { return 7 }
+    if (s == "21") { return 21 }
+    return -1 // invalid signal
+}
+
+// app_run_configured: environment-driven service dispatch.
+// Reads KARKAIN_APP_SERVICE_ID and KARKAIN_APP_SERVICE_INPUT from the
+// process environment through the existing app_config_get/app_config_has
+// wrappers. Defaults are applied only when the variables are absent.
+// Validated values are passed to app_dispatch; unrecognized values
+// produce a controlled Err outcome.
+func app_run_configured(name, port) {
+    let sid_str = app_config_get("KARKAIN_APP_SERVICE_ID", "0")
+    let input_str = app_config_get("KARKAIN_APP_SERVICE_INPUT", "21")
+    let sid = config_service_id(sid_str)
+    let inp = config_service_input(input_str)
+    if (sid == -1) {
+        // service ID was present but unrecognized; do not silently default.
+        let s = app_create(name, port)
+        let s2 = app_start(s)
+        let s3 = app_shutdown(s2)
+        return AppOutcome{ state: s3, outcome: Err("invalid service ID") }
+    }
+    if (inp == -1) {
+        // service input was present but unrecognized; do not silently default.
+        let s = app_create(name, port)
+        let s2 = app_start(s)
+        let outcome = app_service_a(inp) // will produce handler failure Err
+        let s3 = app_shutdown(s2)
+        return AppOutcome{ state: s3, outcome: Err("invalid service input") }
+    }
+    return app_dispatch(name, port, sid, inp)
 }

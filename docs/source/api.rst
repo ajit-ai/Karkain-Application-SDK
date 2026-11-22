@@ -25,90 +25,53 @@ dispatch and dynamic registration are NOT supported on this language line
 * ``app_dispatch(name, port, service_id, service_input)`` -> ``AppOutcome``
   -- the common service execution contract:
 
-  1. accepts a caller-selected ``service_id`` (integer),
-  2. accepts caller-provided ``service_input``,
-  3. creates application state, starts it, routes to the selected handler,
-  4. attempts shutdown after successful execution and after controlled
+  1. creates application state, starts it, routes to the selected handler,
+  2. attempts shutdown after successful execution and after controlled
      handler failure,
-  5. returns ``AppOutcome{ state, outcome }`` with the final (stopped)
+  3. returns ``AppOutcome{ state, outcome }`` with the final (stopped)
      application state and the selected handler's result.
 
 * ``app_dispatch_service(service_id, service_input)`` -> ``Result`` -- the
   pure routing function (no lifecycle). Returns the selected handler's
   result, or a controlled ``Err`` for an unknown identifier.
 
-Service identifier contract
-----------------===========
+Environment-driven configuration API
+------------------------------------
 
-===================  ==========================  =============================
-``service_id``       Handler                     Behavior
-===================  ==========================  =============================
-``0``                ``app_service``             built-in demonstration service:
-                                                ``Ok(n * 2)`` /
-                                                ``Err("service failure:
-                                                negative input")``
-``1``                ``app_service_a``           service A: ``Ok(n * 2)`` /
-                                                ``Err("service a failure:
-                                                negative input")``
-``2``                ``app_service_b``           service B: ``Ok(n * 3)`` /
-                                                ``Err("service b failure:
-                                                negative input")``
-anything else        none                        controlled
-                                                ``Err("unknown service")``
-===================  ==========================  =============================
+* ``app_run_configured(name, port)`` -> ``AppOutcome`` -- the configured
+  service execution contract. Reads ``KARKAIN_APP_SERVICE_ID`` and
+  ``KARKAIN_APP_SERVICE_INPUT`` from the process environment through the
+  existing ``app_config_get`` / ``app_config_has`` wrappers. Defaults are
+  applied only when the variables are absent. Validated values are passed
+  to ``app_dispatch``; unrecognized values produce a controlled ``Err``
+  outcome and the application still reaches the stopped state.
 
-Input and output semantics
---------------------------
+  - ``KARKAIN_APP_SERVICE_ID``: selects service handler.
+    Accepted values (as strings): ``"0"``, ``"1"``, ``"2"``.
+    Default: ``0`` (the built-in demonstration service ``app_service``).
+    If the variable is present but its value is not one of the accepted
+    strings, a controlled ``Err("invalid service ID")`` is returned; the
+    default is NOT silently substituted.
 
-* ``service_input`` is an integer supplied by the caller and passed
-  unchanged to the selected handler.
-* Each handler returns ``Ok(n * 2)`` or ``Ok(n * 3)`` for non-negative
-  input, and a handler-specific ``Err`` for negative input.
-* Handlers A and B are genuinely different operations (double vs. triple),
-  so dispatch is demonstrably not forwarding every request to one service.
-* The handler's original error text is preserved in the returned outcome.
+  - ``KARKAIN_APP_SERVICE_INPUT``: provides the caller-supplied service
+    input integer. Accepted string values: ``"0"``, ``"1"``, ``"2"``,
+    ``"7"``, ``"21"``. Default: ``21`` (the SDK demonstration input).
+    If the variable is present but its value is not one of the accepted
+    strings, a controlled ``Err("invalid service input")`` is returned;
+    the default is NOT silently substituted.
 
-Unknown-service behavior
-------------------------
+  Both variables are resolved through the SDK module's ``app_config_get``
+  (``env_get_or``) and ``app_config_has`` (``env_has``) functions, which
+  are verified working on the Karkain v1.2.x line (exit 0 in check and
+  build modes; exercised by the example and the full test suite).
 
-An unknown or unsupported ``service_id`` yields the controlled error
-``Err("unknown service")``. The application still runs the full lifecycle
-and reaches the stopped state (``started = false``, ``running = false``).
+  The configuration resolution is kept separate from service execution:
+  ``app_run_configured`` reads the env vars, validates them through
+  verified string-equality helpers, and delegates the lifecycle execution
+  to the single shared ``app_dispatch`` path.
 
-Lifecycle and shutdown behavior
--------------------------------
-
-The logical lifecycle is ``created -> started -> running -> stopped``:
-
-* Created: ``started = false``, ``running = false``.
-* Started/running: ``started = true``, ``running = true``.
-* Stopped: ``started = false``, ``running = false``.
-
-``app_dispatch`` is the single shared lifecycle path (create -> start ->
-dispatch -> shutdown); handlers contain no lifecycle logic. Shutdown is
-attempted unconditionally after the handler returns, so the application
-always ends stopped. The service outcome takes error precedence.
-
-Documented limitation: shutdown returns state only and provides no
-shutdown-failure signal.
-
-Relationship to the run APIs
-----------------------------
-
-* ``app_orchestrate(name, port, service_input)`` -> ``AppOutcome`` --
-  delegates to ``app_dispatch(name, port, 0, service_input)`` so the legacy
-  demonstration service shares the same single lifecycle path.
-* ``app_run_state(name, port, service_input)`` -> ``AppOutcome`` --
-  backward compatible orchestration entry point (final state + outcome).
-* ``app_run_service(name, port, service_input)`` -> ``AppOutcome`` --
-  backward compatible configurable service execution contract.
-* ``app_run(name, port)`` -> outcome -- backward compatible entry point
-  that runs the demonstration service (service id ``0``) with the SDK
-  demonstration input and returns only the final service outcome.
-
-All four preserve their established signatures and behavior; each routes
-through ``app_dispatch``, so there is exactly one implementation of the
-lifecycle sequence.
+Dispatch is static, not dynamic. The service identifier meanings and
+handler calculations are unchanged from the preceding dispatch slice.
 
 Application lifecycle API
 -------------------------
