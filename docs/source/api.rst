@@ -73,36 +73,85 @@ Environment-driven configuration API
 Dispatch is static, not dynamic. The service identifier meanings and
 handler calculations are unchanged from the preceding dispatch slice.
 
-Service context API
+Lifecycle Event API
 -------------------
 
-* ``AppContext`` -- structure carrying application metadata and
-  service-specific information to handlers. Instances are independently
-  created for each dispatch and are immutable after construction. Fields:
+The Karkain Application SDK introduces a small, explicit lifecycle event
+model. Events are identified by integer constants and are processed
+synchronously at each stage of the shared execution path.
 
-  - ``name`` -- application name (string)
-  - ``port`` -- application port (int)
-  - ``service_id`` -- selected service identifier (int)
-  - ``service_input`` -- caller-provided service input (int)
+* ``AppEvent`` -- structure representing a lifecycle event. Fields:
 
-* ``app_context_create(name, port, service_id, service_input)`` -- create a
-  new ``AppContext`` instance with the given metadata.
+  - ``id`` -- event identifier (int)
+  - ``name`` -- application name associated with the event (string)
+  - ``port`` -- application port associated with the event (int)
+  - ``service_id`` -- selected service identifier, where applicable (int)
+  - ``service_input`` -- caller-provided service input, where applicable (int)
 
-* ``app_context_config_get(ctx, config_name, default_val)`` -- look up an
-  environment configuration value through the ``ctx`` context, delegating to
-  the SDK module's ``app_config_get`` wrapper. Returns the variable value or
-  ``default_val`` if the variable is absent.
+* ``app_event_create(eid, name, port)`` -- create a new ``AppEvent`` with
+  the given identifier and metadata.
 
-* ``app_context_config_has(ctx, config_name)`` -- check whether an environment
-  configuration variable is set, through the SDK module's ``app_config_has``
-  wrapper. Returns ``true`` if the variable exists, ``false`` otherwise.
+* ``app_event_id(e)`` -- return the event identifier.
 
-The context fields are also reflected in the ``AppState`` returned as part
-of ``AppOutcome``, so handlers can access context information through
-``res.state`` without requiring signature changes.
+* ``app_event_name(e)`` -- return the application name associated with the
+  event.
+
+* ``app_event_port(e)`` -- return the application port associated with the
+  event.
+
+* ``app_event_service_id(e)`` -- return the selected service identifier,
+  where applicable.
+
+* ``app_event_service_input(e)`` -- return the caller-provided service
+  input, where applicable.
+
+* ``app_event_process(e)`` -- process a lifecycle event and return its
+  status code. Return values:
+
+  - ``1`` -- application created
+  - ``2`` -- application started
+  - ``3`` -- before service dispatch
+  - ``4`` -- after service dispatch
+  - ``5`` -- application shutdown
+  - ``0`` -- unknown event
+
+The following integer constants are exported for reference:
+
+- ``event_created`` (1) — application created
+- ``event_started`` (2) — application started
+- ``event_before_dispatch`` (3) — before service dispatch
+- ``event_after_dispatch`` (4) — after service dispatch
+- ``event_shutdown`` (5) — application shutdown
 
 Dispatch is static, not dynamic. The service identifier meanings and
 handler calculations are unchanged from the preceding dispatch slice.
+
+Application lifecycle API
+-------------------------
+
+* ``app_create(name, port)`` -- create application state
+  (``AppState{ name, port, started, running }`` with ``started = false``,
+  ``running = false``).
+* ``app_start(state)`` -- transition state into the running phase
+  (``started = true``, ``running = true``).
+* ``app_shutdown(state)`` -- transition state to stopped
+  (``started = false``, ``running = false``).
+* ``app_config_name(state)`` -- read the configured application name.
+
+Logging and configuration API
+-----------------------------
+
+* ``app_log_info(msg)`` / ``app_log_warn(msg)`` / ``app_log_error(msg)`` /
+  ``app_log_debug(msg)`` / ``app_log_with_time(level, msg)`` -- structured
+  logging wrappers over the verified ``std.log`` capability.
+* ``app_config_get(name, default_val)`` / ``app_config_has(name)`` -- environment
+  configuration wrappers over the verified ``std.env`` capability.
+
+These wrappers cannot be called from the test-compilation path on this
+language line (verified), so they are exercised by the example run and
+validated by the source check.
+
+See the project ``README.md`` for the authoritative module list.
 
 Application lifecycle API
 -------------------------

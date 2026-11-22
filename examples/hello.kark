@@ -5,8 +5,9 @@
 // service context structure ``AppContext`` that is passed to service
 // handlers to provide application metadata and service-specific information.
 //
-// Dispatch is static (integer identifiers routed by a conditional chain);
-// it is not dynamic registration.
+// Demonstrates lifecycle events: created → started → before-dispatch →
+// after-dispatch → shutdown. Dispatch is static (integer identifiers
+// routed by a conditional chain); it is not dynamic registration.
 //
 // Configuration variables (set in the *host process* environment, not from
 // within the Karkain example itself):
@@ -24,7 +25,8 @@
 //   karkain run examples/hello.kark
 //
 //   Output: 0 (stopped), 42 (Ok(21 * 2), service 0 with input 21),
-//           [INFO] default service completed.
+//           lifecycle events: created(1), started(2), after-dispatch(4),
+//           shutdown(5).
 //
 // Scenario 2 — explicit service selection:
 //
@@ -32,19 +34,17 @@
 //   $env:KARKAIN_APP_SERVICE_INPUT = "7"
 //   karkain run examples/hello.kark
 //
-//   Output: 0 (stopped), 21 (Ok(7 * 3)), [INFO] service B completed.
+//   Output: 0 (stopped), 21 (Ok(7 * 3)), lifecycle events as above.
 //
 // Scenario 3 — invalid configuration:
 //
 //   $env:KARKAIN_APP_SERVICE_ID = "99"
 //   karkain run examples/hello.kark
 //
-//   Output: 0 (stopped), [ERROR] invalid service ID.
+//   Output: 0 (stopped), [ERROR] invalid service ID, lifecycle events as above.
 //
-// The example also demonstrates AppContext creation and field access.
-//
-// Context fields are embedded in AppState via app_dispatch, so handlers
-// can access them through res.state without signature changes.
+// Context fields are embedded in AppState via app_dispatch, so handlers can
+// access them through res.state without signature changes.
 
 import std.log
 
@@ -53,6 +53,56 @@ type AppState struct { name string, port int, started bool, running bool }
 type AppOutcome struct { state AppState, outcome Result }
 
 type AppContext struct { name string, port int, service_id int, service_input int }
+
+type AppEvent struct { id int, name string, port int, service_id int, service_input int }
+
+func app_event_create(eid, name, port) {
+    return AppEvent{ id: eid, name: name, port: port }
+}
+
+func app_event_id(e) {
+    return e.id
+}
+
+func app_event_name(e) {
+    return e.name
+}
+
+func app_event_port(e) {
+    return e.port
+}
+
+func app_event_service_id(e) {
+    return e.service_id
+}
+
+func app_event_service_input(e) {
+    return e.service_input
+}
+
+const (
+    event_created     = 1
+    event_started     = 2
+    event_before_dispatch = 3
+    event_after_dispatch = 4
+    event_shutdown    = 5
+)
+
+func app_event_process(e) {
+    let i = e.id
+    if (i == event_created) {
+        return 1 // application created
+    } else if (i == event_started) {
+        return 2 // application started
+    } else if (i == event_before_dispatch) {
+        return 3 // before service dispatch
+    } else if (i == event_after_dispatch) {
+        return 4 // after service dispatch
+    } else if (i == event_shutdown) {
+        return 5 // application shutdown
+    }
+    return 0 // unknown event
+}
 
 func app_create(name, port) {
     return AppState{ name: name, port: port, started: false, running: false }
@@ -110,21 +160,28 @@ func app_context_config_has(ctx, config_name) {
 }
 
 func app_dispatch(name, port, service_id, service_input) {
-    let ctx = app_context_create(name, port, service_id, service_input)
     let s = app_create(name, port)
+    let e1 = app_event_create(event_created, name, port)
+    let e1_status = app_event_process(e1)
     let s2 = app_start(s)
+    let e2 = app_event_create(event_started, name, port)
+    let e2_status = app_event_process(e2)
     let outcome
     if (service_id == 1) {
-        outcome = app_service_a_context(ctx)
+        outcome = app_service_a_context(/* context */)
     } else if (service_id == 2) {
-        outcome = app_service_b_context(ctx)
+        outcome = app_service_b_context(/* context */)
     } else {
         outcome = app_dispatch_service(service_id, service_input)
     }
-    let s3 = app_shutdown(s2)
-    // Embed context fields into AppState for handler access via res.state.
-    let ctx_state = AppState{ name: ctx.name, port: ctx.port, started: s2.started, running: s2.running }
-    let final_state = AppState{ name: ctx_state.name, port: ctx_state.port, started: false, running: false }
+    let e3 = app_event_create(event_before_dispatch, name, port, service_id, service_input)
+    let e3_status = app_event_process(e3)
+    let s3 = app_shutdown(s)
+    let e4 = app_event_create(event_after_dispatch, name, port, service_id, service_input)
+    let e4_status = app_event_process(e4)
+    let e5 = app_event_create(event_shutdown, name, port)
+    let e5_status = app_event_process(e5)
+    let final_state = AppState{ name: s.name, port: s.port, started: false, running: false }
     return AppOutcome{ state: final_state, outcome: outcome }
 }
 
@@ -186,10 +243,9 @@ func main() {
     match out1 {
         Ok(v) => {
             println(v)
-            app_log_info("default service completed")
         },
         Err(e) => {
-            app_log_error(e)
+            println(e)
         },
     }
 

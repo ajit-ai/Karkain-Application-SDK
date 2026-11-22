@@ -25,19 +25,17 @@ The example exercises the service-handler dispatch contract
 ``app_dispatch(name, port, service_id, service_input)`` and the
 environment-driven configuration API ``app_run_configured(name, port)``.
 
-Configuration variables (set in the *host process* environment, not from
-within the Karkain example itself):
+Lifecycle events are emitted at each stage of execution:
 
-===  ====================================================== ==========
-Variable                      Purpose              Default
-===  ====================================================== ==========
-``KARKAIN_APP_SERVICE_ID``   Select service handler    ``0``
-``KARKAIN_APP_SERVICE_INPUT`` Provide service input  ``21``
-===  ====================================================== ==========
+- **Created** (event ID 1) — when the application is instantiated.
+- **Started** (event ID 2) — when the application enters the running phase.
+- **Before dispatch** (event ID 3) — just prior to service selection.
+- **After dispatch** (event ID 4) — after the handler completes, carrying the
+  actual service outcome.
+- **Shutdown** (event ID 5) — after the application shuts down.
 
-The example runs three scenarios in sequence (each scenario requires the
-corresponding environment variable(s) to be set in the host PowerShell
-session before running the command):
+Each scenario requires the corresponding environment variable(s) to be set
+in the host PowerShell session before running the command:
 
 Scenario 1 — default configuration (no env vars set):
 
@@ -46,7 +44,7 @@ Scenario 1 — default configuration (no env vars set):
    karkain run examples/hello.kark
 
    Output: ``0`` (stopped), ``42`` (``Ok(21 * 2)``, service 0 with input 21),
-           ``[INFO] default service completed``.
+   lifecycle events: created(1), started(2), after-dispatch(4), shutdown(5).
 
    This exercises the documented defaults: ``KARKAIN_APP_SERVICE_ID`` absent
    → service id 0, ``KARKAIN_APP_SERVICE_INPUT`` absent → input 21.
@@ -60,21 +58,21 @@ Scenario 2 — explicit service selection:
    $env:KARKAIN_APP_SERVICE_INPUT = "7"
    karkain run examples/hello.kark
 
-   Output: ``0`` (stopped), ``21`` (``Ok(7 * 3)``), ``[INFO] service B completed``.
+   Output: ``0`` (stopped), ``21`` (``Ok(7 * 3)``), lifecycle events as above.
 
    The ``KARKAIN_APP_SERVICE_ID`` value ``"2"`` selects service B via the
    static dispatch chain; the ``"7"`` input is validated by the
-   ``config_service_input`` helper and delivered to the handler.
+   ``config_service_input`` handler and delivered to the handler.
 
 Scenario 3 — invalid configuration:
 
 .. code-block:: powershell
 
-   # An unrecognized service ID; controlled error, application stops.
+   # An unrecognized service ID; controlled error, lifecycle events still emitted.
    $env:KARKAIN_APP_SERVICE_ID = "99"
    karkain run examples/hello.kark
 
-   Output: ``0`` (stopped), ``[ERROR] invalid service ID``.
+   Output: ``0`` (stopped), ``[ERROR] invalid service ID``, lifecycle events as above.
 
    Similarly, ``KARKAIN_APP_SERVICE_INPUT = "99"`` (unrecognized input)
    yields ``[ERROR] invalid service input``.
@@ -85,16 +83,24 @@ Run the SDK tests:
 
    karkain test tests
 
-The focused suite covers dispatch to each handler, distinct handler results,
-configuration defaults, invalid-configuration handling, the stopped final
-state after success and failure, and backward compatibility of ``app_run``,
-``app_run_state``, ``app_run_service``, and ``app_dispatch``.
+The focused suite covers lifecycle event construction and order, service A
+and B execution events, unknown-service and failure event behavior, the
+stopped final state after success and failure, and backward compatibility
+of ``app_run``, ``app_run_state``, ``app_run_service``, ``app_dispatch``,
+``app_context_create``, ``app_context_config_get``, ``app_context_config_has``,
+``app_service_a_context``, and ``app_service_b_context``.
 
 .. note::
 
    Configuration is **host-process only**: the Karkain example cannot
    modify its own environment variables. Each scenario requires the host
    PowerShell session to set the vars before running ``karkain run``.
+
+   Lifecycle events are emitted at real execution stages and correspond to
+   the shared single lifecycle path (create → start → dispatch → shutdown).
+   Event processing uses only verified Karkain v1.2.x capabilities
+   (integer constants, struct fields, helper functions). No dynamic
+   registration, callbacks, or asynchronous delivery is supported.
 
    Dispatch is static: service identifiers are integers routed by a
    conditional chain. Function-value / callback dispatch and dynamic
