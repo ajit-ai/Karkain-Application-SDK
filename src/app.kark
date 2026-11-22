@@ -178,6 +178,32 @@ func app_context_config_has(ctx, config_name) {
     return app_config_has(config_name)
 }
 
+// Debug helper: inspect whether debug mode is enabled in the given context.
+func app_debug_enabled(ctx) {
+    return ctx.debug
+}
+
+// Debug helper: return a diagnostic status code for the given event and context.
+// Returns 1 if debug is enabled and the event identifier is recognized.
+// Returns 0 if debug is disabled or the event identifier is unrecognized.
+func app_diagnostic_status(ctx, event_id) {
+    let enabled = ctx.debug
+    if (enabled) {
+        if (event_id == 1) {
+            return 1 // created
+        } else if (event_id == 2) {
+            return 1 // started
+        } else if (event_id == 3) {
+            return 1 // before-dispatch
+        } else if (event_id == 4) {
+            return 1 // after-dispatch
+        } else if (event_id == 5) {
+            return 1 // shutdown
+        }
+    }
+    return 0 // diagnostics disabled
+}
+
 // AppConfig represents a configuration profile for application execution.
 // Instances are immutable and can be converted to AppContext for runtime use.
 type AppConfig struct { name string, port int, service_id int, service_input int, debug bool }

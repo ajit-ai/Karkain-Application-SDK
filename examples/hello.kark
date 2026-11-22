@@ -56,32 +56,6 @@ type AppContext struct { name string, port int, service_id int, service_input in
 
 type AppEvent struct { id int, name string, port int, service_id int, service_input int }
 
-// Debug helper: inspect whether debug mode is enabled in the given context.
-func app_debug_enabled(ctx) {
-    return ctx.debug
-}
-
-// Debug helper: return a diagnostic status code for the given event and context.
-// When debug is false, returns 0 (diagnostics disabled).
-// When debug is true, returns 1 (diagnostics enabled) for recognized events.
-func app_diagnostic_status(ctx, event_id) {
-    let enabled = ctx.debug
-    if (enabled) {
-        if (event_id == 1) {
-            return 1 // created diagnostic enabled
-        } else if (event_id == 2) {
-            return 1 // started diagnostic enabled
-        } else if (event_id == 3) {
-            return 1 // before-dispatch diagnostic enabled
-        } else if (event_id == 4) {
-            return 1 // after-dispatch diagnostic enabled
-        } else if (event_id == 5) {
-            return 1 // shutdown diagnostic enabled
-        }
-    }
-    return 0 // diagnostics disabled
-}
-
 func app_create(name, port) {
     return AppState{ name: name, port: port, started: false, running: false }
 }
