@@ -181,9 +181,15 @@ Application context API
   - ``debug`` -- debug mode setting (bool); when true, diagnostic
     helpers enable debug-specific reporting
 
-* ``app_context_create(name, port, service_id, service_input, debug)`` --
-  create a new ``AppContext`` instance with the given metadata and debug
-  setting.
+* ``app_context_create(name, port, service_id, service_input)`` --
+  create a new ``AppContext`` instance with the given metadata. The
+  debug field defaults to ``false``. This is the original public
+  constructor signature; existing callers continue to compile without
+  modification.
+
+* ``app_context_create_debug(name, port, service_id, service_input, debug)`` --
+  debug-aware constructor that initializes the debug field to the given
+  value. Use this when a specific debug setting must be supplied.
 
 * ``app_context_config_get(ctx, config_name, default_val)`` -- look up an
   environment configuration value through the ``ctx`` context, delegating to

@@ -160,7 +160,13 @@ func config_service_input(s) {
 // them without signature changes. The debug flag enables runtime diagnostics.
 type AppContext struct { name string, port int, service_id int, service_input int, debug bool }
 
-func app_context_create(name, port, service_id, service_input, debug) {
+// Original constructor: four parameters, debug defaults to false.
+func app_context_create(name, port, service_id, service_input) {
+    return AppContext{ name: name, port: port, service_id: service_id, service_input: service_input, debug: false }
+}
+
+// Debug-aware constructor: five parameters, initializes the debug field.
+func app_context_create_debug(name, port, service_id, service_input, debug) {
     return AppContext{ name: name, port: port, service_id: service_id, service_input: service_input, debug: debug }
 }
 

@@ -19,14 +19,14 @@
 // corresponding environment variable(s) to be set in the host PowerShell
 // session before running the command):
 //
-// Scenario 1 — default configuration (no env vars set):
+// Scenario A — Default profile:
 //
 //   karkain run examples/hello.kark
 //
 //   Output: 0 (stopped), 42 (Ok(21 * 2), service 0 with input 21),
 //           debug disabled.
 //
-// Scenario 2 — explicit service selection with development profile:
+// Scenario B — Development profile:
 //
 //   $env:KARKAIN_APP_SERVICE_ID = "2"
 //   $env:KARKAIN_APP_SERVICE_INPUT = "7"
@@ -34,12 +34,14 @@
 //
 //   Output: 0 (stopped), 21 (Ok(7 * 3)), debug enabled.
 //
-// Scenario 3 — invalid configuration:
+// Scenario C — Production profile:
 //
-//   $env:KARKAIN_APP_SERVICE_ID = "99"
+//   $env:KARKAIN_APP_SERVICE_ID = "2"
+//   $env:KARKAIN_APP_SERVICE_INPUT = "21"
 //   karkain run examples/hello.kark
 //
-//   Output: 0 (stopped), [ERROR] invalid service ID, lifecycle events as above.
+//   Output: 0 (stopped), 42 (Ok(21 * 2), service B with input 21),
+//           debug disabled.
 //
 // Context fields are embedded in AppState via app_dispatch, so handlers can
 // access them through res.state without signature changes.
@@ -53,30 +55,6 @@ type AppOutcome struct { state AppState, outcome Result }
 type AppContext struct { name string, port int, service_id int, service_input int, debug bool }
 
 type AppEvent struct { id int, name string, port int, service_id int, service_input int }
-
-func app_event_create(eid, name, port) {
-    return AppEvent{ id: eid, name: name, port: port }
-}
-
-func app_event_id(e) {
-    return e.id
-}
-
-func app_event_name(e) {
-    return e.name
-}
-
-func app_event_port(e) {
-    return e.port
-}
-
-func app_event_service_id(e) {
-    return e.service_id
-}
-
-func app_event_service_input(e) {
-    return e.service_input
-}
 
 // Debug helper: inspect whether debug mode is enabled in the given context.
 func app_debug_enabled(ctx) {
@@ -147,7 +125,13 @@ func config_service_input(s) {
     return -1
 }
 
-func app_context_create(name, port, service_id, service_input, debug) {
+// Original constructor: four parameters, debug defaults to false.
+func app_context_create(name, port, service_id, service_input) {
+    return AppContext{ name: name, port: port, service_id: service_id, service_input: service_input, debug: false }
+}
+
+// Debug-aware constructor: five parameters, initializes the debug field.
+func app_context_create_debug(name, port, service_id, service_input, debug) {
     return AppContext{ name: name, port: port, service_id: service_id, service_input: service_input, debug: debug }
 }
 
@@ -157,61 +141,6 @@ func app_context_config_get(ctx, config_name, default_val) {
 
 func app_context_config_has(ctx, config_name) {
     return app_config_has(config_name)
-}
-
-func app_dispatch(name, port, service_id, service_input) {
-    let s = app_create(name, port)
-    let s2 = app_start(s)
-    let ctx = app_context_create(name, port, service_id, service_input, false)
-    let outcome = app_dispatch_service(service_id, service_input)
-    let s3 = app_shutdown(s2)
-    // Post-dispatch diagnostics (debug disabled in base dispatch)
-    let diag = app_diagnostic_status(ctx, 4)
-    let final_state = AppState{ name: s.name, port: s.port, started: false, running: false }
-    return AppOutcome{ state: final_state, outcome: outcome }
-}
-
-func app_orchestrate(name, port, service_input) {
-    return app_dispatch(name, port, 0, service_input)
-}
-
-func app_run_service(name, port, service_input) {
-    return app_orchestrate(name, port, service_input)
-}
-
-func app_run(name, port) {
-    let res = app_orchestrate(name, port, 21)
-    return res.outcome
-}
-
-func app_run_state(name, port, service_input) {
-    return app_orchestrate(name, port, service_input)
-}
-
-// Debug-enabled context-aware service handler A.
-// Reads service input from the application context and uses it in its
-// calculation. The service calculation (double the input) is preserved.
-// The debug flag is inspected for diagnostics.
-func app_service_a_context(ctx) {
-    let n = ctx.service_input
-    let debug_enabled = ctx.debug
-    if (n < 0) { return Err("service a failure: negative input") }
-    // Diagnostic status when debug is enabled (does not alter outcome)
-    let diag = app_diagnostic_status(ctx, 1)
-    return Ok(n * 2)
-}
-
-// Debug-enabled context-aware service handler B.
-// Reads service input from the application context and uses it in its
-// calculation. The service calculation (triple the input) is preserved.
-// The debug flag is inspected for diagnostics.
-func app_service_b_context(ctx) {
-    let n = ctx.service_input
-    let debug_enabled = ctx.debug
-    if (n < 0) { return Err("service b failure: negative input") }
-    // Diagnostic status when debug is enabled (does not alter outcome)
-    let diag = app_diagnostic_status(ctx, 1)
-    return Ok(n * 3)
 }
 
 // app_config_default: construct a default configuration profile.
@@ -265,25 +194,59 @@ func app_config_to_context(cfg) {
     return AppContext{ name: cfg.name, port: cfg.port, service_id: cfg.service_id, service_input: cfg.service_input, debug: cfg.debug }
 }
 
-func app_run_configured(name, port) {
-    let sid_str = app_config_get("KARKAIN_APP_SERVICE_ID", "0")
-    let input_str = app_config_get("KARKAIN_APP_SERVICE_INPUT", "21")
-    let sid = config_service_id(sid_str)
-    let inp = config_service_input(input_str)
-    if (sid == -1) {
-        let s = app_create(name, port)
-        let s2 = app_start(s)
-        let s3 = app_shutdown(s2)
-        return AppOutcome{ state: s3, outcome: Err("invalid service ID") }
-    }
-    if (inp == -1) {
-        let s = app_create(name, port)
-        let s2 = app_start(s)
-        let outcome = app_service_a(inp)
-        let s3 = app_shutdown(s2)
-        return AppOutcome{ state: s3, outcome: Err("invalid service input") }
-    }
-    return app_dispatch(name, port, sid, inp)
+func app_dispatch(name, port, service_id, service_input) {
+    let s = app_create(name, port)
+    let s2 = app_start(s)
+    let ctx = app_context_create(name, port, service_id, service_input)
+    let outcome = app_dispatch_service(service_id, service_input)
+    let s3 = app_shutdown(s2)
+    // Post-dispatch diagnostics (debug disabled in base dispatch)
+    let diag = app_diagnostic_status(ctx, 4)
+    let final_state = AppState{ name: s.name, port: s.port, started: false, running: false }
+    return AppOutcome{ state: final_state, outcome: outcome }
+}
+
+func app_orchestrate(name, port, service_input) {
+    return app_dispatch(name, port, 0, service_input)
+}
+
+func app_run_service(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
+}
+
+func app_run(name, port) {
+    let res = app_orchestrate(name, port, 21)
+    return res.outcome
+}
+
+func app_run_state(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
+}
+
+// Debug-enabled context-aware service handler A.
+// Reads service input from the application context and uses it in its
+// calculation. The service calculation (double the input) is preserved.
+// The debug flag is inspected for diagnostics.
+func app_service_a_context(ctx) {
+    let n = ctx.service_input
+    let debug_enabled = ctx.debug
+    if (n < 0) { return Err("service a failure: negative input") }
+    // Diagnostic status when debug is enabled (does not alter outcome)
+    let diag = app_diagnostic_status(ctx, 1)
+    return Ok(n * 2)
+}
+
+// Debug-enabled context-aware service handler B.
+// Reads service input from the application context and uses it in its
+// calculation. The service calculation (triple the input) is preserved.
+// The debug flag is inspected for diagnostics.
+func app_service_b_context(ctx) {
+    let n = ctx.service_input
+    let debug_enabled = ctx.debug
+    if (n < 0) { return Err("service b failure: negative input") }
+    // Diagnostic status when debug is enabled (does not alter outcome)
+    let diag = app_diagnostic_status(ctx, 1)
+    return Ok(n * 3)
 }
 
 func app_log_info(msg) {
@@ -295,16 +258,19 @@ func app_log_error(msg) {
 }
 
 func main() {
-    // Scenario 1: default configuration (no env vars set).
-    //   KARKAIN_APP_SERVICE_ID absent → 0 (built-in demonstration service).
-    //   KARKAIN_APP_SERVICE_INPUT absent → 21.
+    // Scenario A: Default profile.
+    //   Construct default AppConfig, validate, convert to AppContext.
     //   Debug mode is disabled.
-    println("=== scenario 1: default configuration (debug disabled) ===")
-    let res1 = app_run_configured("karkain-app", 8080)
-    let out1 = res1.outcome
-    let st1 = res1.state
-    println(st1.started)
-    match out1 {
+    println("=== scenario A: default profile ===")
+    let cfgA = app_config_default()
+    let validA = app_config_validate(cfgA)
+    let ctxA = app_config_to_context(cfgA)
+    println("debug enabled: ", app_debug_enabled(ctxA))
+    let resA = app_run_configured("karkain-app", 8080)
+    let outA = resA.outcome
+    let stA = resA.state
+    println(stA.started)
+    match outA {
         Ok(v) => {
             println(v)
         },
@@ -313,7 +279,7 @@ func main() {
         },
     }
 
-    // Scenario 2: explicit service selection via environment.
+    // Scenario B: Development profile via environment.
     //   Set KARKAIN_APP_SERVICE_ID=2 to select service B (triple input).
     //   KARKAIN_APP_SERVICE_INPUT=7 → input 7 → Ok(21).
     //   Debug mode is enabled (development profile).
@@ -324,13 +290,30 @@ func main() {
     // (The example itself cannot modify the process environment portably,
     //  so the external shell setup is documented.)
 
-    // Scenario 3: invalid service ID.
-    //   KARKAIN_APP_SERVICE_ID=99 is not a recognized identifier.
-    //   Controlled error is returned; application still stops.
-    // PowerShell example:
-    //   $env:KARKAIN_APP_SERVICE_ID = "99"
-    //   karkain run examples/hello.kark
+    // Scenario C: Production profile via construction.
+    //   Construct production AppConfig, validate, convert to AppContext.
+    //   Debug mode is disabled.
+    //   Execute Service B with input 21.
+    println("=== scenario C: production profile ===")
+    let cfgC = app_config_production()
+    let validC = app_config_validate(cfgC)
+    let ctxC = app_config_to_context(cfgC)
+    println("debug enabled: ", app_debug_enabled(ctxC))
+    let resC = app_dispatch("karkain-prod", 8082, 2, 21)
+    let outC = resC.outcome
+    let stC = resC.state
+    println(stC.started)
+    match outC {
+        Ok(v) => {
+            println(v)
+        },
+        Err(e) => {
+            println(e)
+        },
+    }
 
     // Note: the example process cannot set environment variables for itself;
     // each scenario requires the host shell to set the vars before running.
+    // The example demonstrates the API patterns; actual execution requires
+    // the host PowerShell session to set the environment variables.
 }
