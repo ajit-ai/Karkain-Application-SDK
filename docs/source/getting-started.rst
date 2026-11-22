@@ -21,12 +21,32 @@ Build and run the SDK example:
 
    karkain run examples/hello.kark
 
-The example orchestrates the application through ``app_run_service``: it creates
-application state, starts the application, runs the caller-controlled service,
-shuts down and handles the final outcome (``Ok`` / ``Err``).
+The example exercises the service-handler dispatch contract
+``app_dispatch(name, port, service_id, service_input)`` three times:
+
+1. service A (``service_id = 1``) with input ``21`` -> ``Ok(42)``;
+2. service B (``service_id = 2``) with input ``7`` -> ``Ok(21)``;
+3. an unknown identifier (``99``) -> controlled ``Err("unknown service")``.
+
+Each call receives an ``AppOutcome`` holding the final application state and
+the execution result. The example prints the final ``started`` / ``running``
+flags (the application is stopped in every case) and handles each outcome
+with ``match``.
 
 Run the SDK tests:
 
 .. code-block:: bash
 
    karkain test tests
+
+The focused suite covers dispatch to each handler, distinct handler
+results, caller-provided input propagation, preservation of the original
+handler error, unknown-service handling, the stopped final state after
+success and failure, and backward compatibility of ``app_run``,
+``app_run_state`` and ``app_run_service``.
+
+.. note::
+
+   Dispatch is static: service identifiers are integers routed by a
+   conditional chain. Function-value / callback dispatch and dynamic
+   registration are not supported on the Karkain v1.2.x line.

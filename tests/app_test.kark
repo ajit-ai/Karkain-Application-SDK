@@ -1,4 +1,13 @@
 // Karkain Application SDK - focused tests.
+//
+// Verification notes (Karkain v1.2.x, Go engine):
+// - String comparison must live in a NON-test helper function; string `==`
+//   directly inside a test function is a known C compilation failure.
+// - `match` must not appear inside a test function; a `match` helper called
+//   from a test is verified.
+// - std.log / std.env cannot be invoked from the test-compilation path at
+//   all (verified), so logging / configuration regression is covered by the
+//   example run and the source check instead.
 
 func double(x) {
     return x * 2
@@ -13,7 +22,20 @@ func test_app_math_negative() {
     assert_eq(double(-3), -6)
 }
 
-// Application SDK orchestration contract tests (self-contained unit).
+// Verified helpers - must stay outside test functions.
+
+func eq(a, b) {
+    return a == b
+}
+
+func err_is(r, expected) {
+    match r {
+        Ok(v) => { return false },
+        Err(e) => { return e == expected },
+    }
+}
+
+// Application SDK dispatch contract tests (self-contained unit).
 
 type AppState struct { name string, port int, started bool, running bool }
 
@@ -36,12 +58,33 @@ func app_service(n) {
     return Ok(n * 2)
 }
 
-func app_orchestrate(name, port, service_input) {
+func app_service_a(n) {
+    if (n < 0) { return Err("service a failure: negative input") }
+    return Ok(n * 2)
+}
+
+func app_service_b(n) {
+    if (n < 0) { return Err("service b failure: negative input") }
+    return Ok(n * 3)
+}
+
+func app_dispatch_service(service_id, service_input) {
+    if (service_id == 0) { return app_service(service_input) }
+    if (service_id == 1) { return app_service_a(service_input) }
+    if (service_id == 2) { return app_service_b(service_input) }
+    return Err("unknown service")
+}
+
+func app_dispatch(name, port, service_id, service_input) {
     let s = app_create(name, port)
     let s2 = app_start(s)
-    let outcome = app_service(service_input)
+    let outcome = app_dispatch_service(service_id, service_input)
     let s3 = app_shutdown(s2)
     return AppOutcome{ state: s3, outcome: outcome }
+}
+
+func app_orchestrate(name, port, service_input) {
+    return app_dispatch(name, port, 0, service_input)
 }
 
 func app_run_service(name, port, service_input) {
@@ -57,6 +100,115 @@ func app_run(name, port) {
     return res.outcome
 }
 
+// 1 + 8: dispatch to service handler A; successful; final state stopped.
+func test_dispatch_handler_a() {
+    let res = app_dispatch("kapp", 8080, 1, 21)
+    let st = res.state
+    let out = res.outcome
+    let v = out?
+    assert_eq(v, 42)
+    assert(st.started == false)
+    assert(st.running == false)
+}
+
+// 2 + 8: dispatch to service handler B; successful; final state stopped.
+func test_dispatch_handler_b() {
+    let res = app_dispatch("kapp", 8080, 2, 21)
+    let st = res.state
+    let out = res.outcome
+    let v = out?
+    assert_eq(v, 63)
+    assert(st.started == false)
+    assert(st.running == false)
+}
+
+// 3: the two handlers produce genuinely distinct results.
+func test_dispatch_handlers_distinct() {
+    let a = app_dispatch_service(1, 21)
+    let b = app_dispatch_service(2, 21)
+    let av = a?
+    let bv = b?
+    assert_eq(av, 42)
+    assert_eq(bv, 63)
+    assert(av != bv)
+}
+
+// 4: caller-provided input reaches the selected handler.
+func test_dispatch_input_reaches_handler() {
+    let r1 = app_dispatch_service(2, 7)
+    let v1 = r1?
+    assert_eq(v1, 21)
+    let r2 = app_dispatch_service(2, 10)
+    let v2 = r2?
+    assert_eq(v2, 30)
+    let r3 = app_dispatch_service(1, 7)
+    let v3 = r3?
+    assert_eq(v3, 14)
+}
+
+// 5: successful dispatch returns the correct outcome.
+func test_dispatch_success_outcome() {
+    let res = app_dispatch("kapp", 8080, 1, 10)
+    let out = res.outcome
+    let v = out?
+    assert_eq(v, 20)
+}
+
+// 6: handler failure preserves the ORIGINAL selected handler error.
+func test_dispatch_failure_preserves_error() {
+    let res_a = app_dispatch("kapp", 8080, 1, -5)
+    let out_a = res_a.outcome
+    assert(err_is(out_a, "service a failure: negative input"))
+    let res_b = app_dispatch("kapp", 8080, 2, -5)
+    let out_b = res_b.outcome
+    assert(err_is(out_b, "service b failure: negative input"))
+}
+
+// 7: unknown service identifier returns a controlled error.
+func test_dispatch_unknown_service() {
+    let res = app_dispatch("kapp", 8080, 99, 21)
+    let out = res.outcome
+    assert(err_is(out, "unknown service"))
+}
+
+// 9: final state is stopped after handler failure and after unknown service.
+func test_dispatch_stopped_after_failure() {
+    let res = app_dispatch("kapp", 8080, 1, -5)
+    let st = res.state
+    assert(st.started == false)
+    assert(st.running == false)
+    let res2 = app_dispatch("kapp", 8080, 99, 21)
+    let st2 = res2.state
+    assert(st2.started == false)
+    assert(st2.running == false)
+}
+
+// Service identifier 0 selects the built-in demonstration service.
+func test_dispatch_legacy_service_id() {
+    let r = app_dispatch_service(0, 21)
+    let v = r?
+    assert_eq(v, 42)
+}
+
+// 10: existing app_run compatibility.
+func test_app_run_backcompat() {
+    let out = app_run("kapp", 8080)
+    let v = out?
+    assert_eq(v, 42)
+}
+
+// 11: existing app_run_state compatibility.
+func test_app_run_state_backcompat() {
+    let res = app_run_state("kapp", 8080, 21)
+    let st = res.state
+    let out = res.outcome
+    let v = out?
+    assert_eq(v, 42)
+    assert(st.started == false)
+    assert(st.running == false)
+}
+
+// 12: existing app_run_service compatibility (success).
 func test_app_run_service_success() {
     let res = app_run_service("kapp", 8080, 21)
     let st = res.state
@@ -67,24 +219,12 @@ func test_app_run_service_success() {
     assert(st.running == false)
 }
 
+// 12: existing app_run_service compatibility (controlled failure + shutdown).
 func test_app_run_service_failure_shutdown() {
     let res = app_run_service("kapp", 8080, -5)
     let st = res.state
     assert(st.started == false)
     assert(st.running == false)
-}
-
-func test_app_run_state_backcompat() {
-    let res = app_run_state("kapp", 8080, 21)
-    let st = res.state
     let out = res.outcome
-    let v = out?
-    assert_eq(v, 42)
-    assert(st.running == false)
-}
-
-func test_app_run_backcompat() {
-    let out = app_run("kapp", 8080)
-    let v = out?
-    assert_eq(v, 42)
+    assert(err_is(out, "service failure: negative input"))
 }

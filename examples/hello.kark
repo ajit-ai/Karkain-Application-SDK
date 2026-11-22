@@ -1,9 +1,12 @@
 // Karkain Application SDK - first working product example.
-
-// A native Karkain application that orchestrates the verified lifecycle
-// (create -> start -> service -> shutdown) through app_run_service with a
-// caller-controlled service input, inspects the final outcome and state, and
-// handles the outcome.
+//
+// Demonstrates the synchronous service-handler dispatch contract: select a
+// service by identifier, supply its input, receive the AppOutcome (final
+// application state + execution result), observe the stopped state and
+// handle success, controlled failure and unknown-service outcomes.
+//
+// Dispatch is static (integer identifiers routed by a conditional chain);
+// it is not dynamic registration.
 
 import std.log
 
@@ -28,10 +31,27 @@ func app_service(n) {
     return Ok(n * 2)
 }
 
-func app_run_service(name, port, service_input) {
+func app_service_a(n) {
+    if (n < 0) { return Err("service a failure: negative input") }
+    return Ok(n * 2)
+}
+
+func app_service_b(n) {
+    if (n < 0) { return Err("service b failure: negative input") }
+    return Ok(n * 3)
+}
+
+func app_dispatch_service(service_id, service_input) {
+    if (service_id == 0) { return app_service(service_input) }
+    if (service_id == 1) { return app_service_a(service_input) }
+    if (service_id == 2) { return app_service_b(service_input) }
+    return Err("unknown service")
+}
+
+func app_dispatch(name, port, service_id, service_input) {
     let s = app_create(name, port)
     let s2 = app_start(s)
-    let outcome = app_service(service_input)
+    let outcome = app_dispatch_service(service_id, service_input)
     let s3 = app_shutdown(s2)
     return AppOutcome{ state: s3, outcome: outcome }
 }
@@ -45,12 +65,47 @@ func app_log_error(msg) {
 }
 
 func main() {
-    let res = app_run_service("karkain-app", 8080, 7)
-    let out = res.outcome
-    let st = res.state
-    println(st.started)
-    match out {
-        Ok(v) => { app_log_info("application service completed") },
-        Err(e) => { app_log_error(e) },
+    // Service A: double the caller-supplied input.
+    let res_a = app_dispatch("karkain-app", 8080, 1, 21)
+    let out_a = res_a.outcome
+    let st_a = res_a.state
+    println(st_a.started)
+    match out_a {
+        Ok(v) => {
+            println(v)
+            app_log_info("service A completed")
+        },
+        Err(e) => {
+            app_log_error(e)
+        },
+    }
+
+    // Service B: triple a different caller-supplied input.
+    let res_b = app_dispatch("karkain-app", 8080, 2, 7)
+    let out_b = res_b.outcome
+    let st_b = res_b.state
+    println(st_b.running)
+    match out_b {
+        Ok(v) => {
+            println(v)
+            app_log_info("service B completed")
+        },
+        Err(e) => {
+            app_log_error(e)
+        },
+    }
+
+    // Unknown service: controlled failure, application still stops.
+    let res_x = app_dispatch("karkain-app", 8080, 99, 7)
+    let out_x = res_x.outcome
+    let st_x = res_x.state
+    println(st_x.started)
+    match out_x {
+        Ok(v) => {
+            println(v)
+        },
+        Err(e) => {
+            app_log_error(e)
+        },
     }
 }
