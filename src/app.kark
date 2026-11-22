@@ -135,29 +135,70 @@ func config_service_input(s) {
     return -1 // invalid signal
 }
 
-// app_run_configured: environment-driven service dispatch.
-// Reads KARKAIN_APP_SERVICE_ID and KARKAIN_APP_SERVICE_INPUT from the
-// process environment through the existing app_config_get/app_config_has
-// wrappers. Defaults are applied only when the variables are absent.
-// Validated values are passed to app_dispatch; unrecognized values
-// produce a controlled Err outcome.
+// AppContext carries application metadata and service-specific information
+// to service handlers. Instances are independently created for each dispatch
+// and are immutable after construction. The context fields are also reflected
+// in the AppState returned as part of AppOutcome, so handlers can access
+// them without signature changes.
+type AppContext struct { name string, port int, service_id int, service_input int }
+
+func app_context_create(name, port, service_id, service_input) {
+    return AppContext{ name: name, port: port, service_id: service_id, service_input: service_input }
+}
+
+func app_context_config_get(ctx, config_name, default_val) {
+    return app_config_get(config_name, default_val)
+}
+
+func app_context_config_has(ctx, config_name) {
+    return app_config_has(config_name)
+}
+
+// Single shared lifecycle path: create -> start -> dispatch -> shutdown.
+// Shutdown is attempted after both successful execution and controlled
+// handler failure; the service outcome takes error precedence.
+func app_dispatch(name, port, service_id, service_input) {
+    let s = app_create(name, port)
+    let s2 = app_start(s)
+    let outcome = app_dispatch_service(service_id, service_input)
+    let s3 = app_shutdown(s2)
+    return AppOutcome{ state: s3, outcome: outcome }
+}
+
+// app_run_service: configurable service execution delegating through the
+// shared single lifecycle path.
+func app_run_service(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
+}
+
+func app_orchestrate(name, port, service_input) {
+    return app_dispatch(name, port, 0, service_input)
+}
+
+func app_run(name, port) {
+    let res = app_orchestrate(name, port, 21)
+    return res.outcome
+}
+
+func app_run_state(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
+}
+
 func app_run_configured(name, port) {
     let sid_str = app_config_get("KARKAIN_APP_SERVICE_ID", "0")
     let input_str = app_config_get("KARKAIN_APP_SERVICE_INPUT", "21")
     let sid = config_service_id(sid_str)
     let inp = config_service_input(input_str)
     if (sid == -1) {
-        // service ID was present but unrecognized; do not silently default.
         let s = app_create(name, port)
         let s2 = app_start(s)
         let s3 = app_shutdown(s2)
         return AppOutcome{ state: s3, outcome: Err("invalid service ID") }
     }
     if (inp == -1) {
-        // service input was present but unrecognized; do not silently default.
         let s = app_create(name, port)
         let s2 = app_start(s)
-        let outcome = app_service_a(inp) // will produce handler failure Err
+        let outcome = app_service_a(inp)
         let s3 = app_shutdown(s2)
         return AppOutcome{ state: s3, outcome: Err("invalid service input") }
     }

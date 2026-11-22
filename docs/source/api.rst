@@ -73,6 +73,37 @@ Environment-driven configuration API
 Dispatch is static, not dynamic. The service identifier meanings and
 handler calculations are unchanged from the preceding dispatch slice.
 
+Service context API
+-------------------
+
+* ``AppContext`` -- structure carrying application metadata and
+  service-specific information to handlers. Instances are independently
+  created for each dispatch and are immutable after construction. Fields:
+
+  - ``name`` -- application name (string)
+  - ``port`` -- application port (int)
+  - ``service_id`` -- selected service identifier (int)
+  - ``service_input`` -- caller-provided service input (int)
+
+* ``app_context_create(name, port, service_id, service_input)`` -- create a
+  new ``AppContext`` instance with the given metadata.
+
+* ``app_context_config_get(ctx, config_name, default_val)`` -- look up an
+  environment configuration value through the ``ctx`` context, delegating to
+  the SDK module's ``app_config_get`` wrapper. Returns the variable value or
+  ``default_val`` if the variable is absent.
+
+* ``app_context_config_has(ctx, config_name)`` -- check whether an environment
+  configuration variable is set, through the SDK module's ``app_config_has``
+  wrapper. Returns ``true`` if the variable exists, ``false`` otherwise.
+
+The context fields are also reflected in the ``AppState`` returned as part
+of ``AppOutcome``, so handlers can access context information through
+``res.state`` without requiring signature changes.
+
+Dispatch is static, not dynamic. The service identifier meanings and
+handler calculations are unchanged from the preceding dispatch slice.
+
 Application lifecycle API
 -------------------------
 

@@ -99,3 +99,11 @@ state after success and failure, and backward compatibility of ``app_run``,
    Dispatch is static: service identifiers are integers routed by a
    conditional chain. Function-value / callback dispatch and dynamic
    registration are not supported on the Karkain v1.2.x line.
+
+   The service context ``AppContext`` carries application metadata
+   (name, port, service ID and input) to handlers through the
+   ``app_context_create`` function and the shared ``app_dispatch`` path.
+   Context fields are also available in the ``AppState`` returned by
+   ``app_dispatch`` via ``res.state``.
+
+.. note::

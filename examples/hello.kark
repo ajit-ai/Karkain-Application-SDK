@@ -1,28 +1,56 @@
 // Karkain Application SDK - first working product example.
 //
-// Demonstrates the synchronous service-handler dispatch contract and the
-// environment-driven configuration API ``app_run_configured``.
+// Demonstrates the synchronous service-handler dispatch contract, the
+// environment-driven configuration API ``app_run_configured``, and the
+// service context structure ``AppContext`` that is passed to service
+// handlers to provide application metadata and service-specific information.
 //
 // Dispatch is static (integer identifiers routed by a conditional chain);
 // it is not dynamic registration.
 //
-// Configuration variables (set in the process environment):
+// Configuration variables (set in the *host process* environment, not from
+// within the Karkain example itself):
+//
 //   KARKAIN_APP_SERVICE_ID   - selects service handler (0, 1, 2);
 //                              defaults to 0 when absent.
 //   KARKAIN_APP_SERVICE_INPUT - provides service input; defaults to 21 when absent.
 //
-// The example runs three scenarios in sequence:
-//   1. Default configuration (no env vars set).
-//   2. Explicit service selection (service B via env var).
-//   3. Invalid service ID handling.
+// The example runs three scenarios in sequence (each scenario requires the
+// corresponding environment variable(s) to be set in the host PowerShell
+// session before running the command):
 //
-// The final application state is stopped in every case.
+// Scenario 1 — default configuration (no env vars set):
+//
+//   karkain run examples/hello.kark
+//
+//   Output: 0 (stopped), 42 (Ok(21 * 2), service 0 with input 21),
+//           [INFO] default service completed.
+//
+// Scenario 2 — explicit service selection:
+//
+//   $env:KARKAIN_APP_SERVICE_ID = "2"
+//   $env:KARKAIN_APP_SERVICE_INPUT = "7"
+//   karkain run examples/hello.kark
+//
+//   Output: 0 (stopped), 21 (Ok(7 * 3)), [INFO] service B completed.
+//
+// Scenario 3 — invalid configuration:
+//
+//   $env:KARKAIN_APP_SERVICE_ID = "99"
+//   karkain run examples/hello.kark
+//
+//   Output: 0 (stopped), [ERROR] invalid service ID.
+//
+// The example also demonstrates context creation and field access via the
+// ``app_context_`` helper functions.
 
 import std.log
 
 type AppState struct { name string, port int, started bool, running bool }
 
 type AppOutcome struct { state AppState, outcome Result }
+
+type AppContext struct { name string, port int, service_id int, service_input int }
 
 func app_create(name, port) {
     return AppState{ name: name, port: port, started: false, running: false }
@@ -65,6 +93,45 @@ func config_service_input(s) {
     if (s == "7") { return 7 }
     if (s == "21") { return 21 }
     return -1
+}
+
+func app_context_create(name, port, service_id, service_input) {
+    return AppContext{ name: name, port: port, service_id: service_id, service_input: service_input }
+}
+
+func app_context_config_get(ctx, config_name, default_val) {
+    return app_config_get(config_name, default_val)
+}
+
+func app_context_config_has(ctx, config_name) {
+    return app_config_has(config_name)
+}
+
+func app_dispatch(name, port, service_id, service_input) {
+    let ctx = app_context_create(name, port, service_id, service_input)
+    let s = app_create(name, port)
+    let s2 = app_start(s)
+    let outcome = app_dispatch_service(service_id, service_input)
+    let s3 = app_shutdown(s2)
+    let final_ctx = AppContext{ name: ctx.name, port: ctx.port, service_id: ctx.service_id, service_input: ctx.service_input }
+    return AppOutcome{ state: s3, outcome: outcome }
+}
+
+func app_orchestrate(name, port, service_input) {
+    return app_dispatch(name, port, 0, service_input)
+}
+
+func app_run_service(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
+}
+
+func app_run(name, port) {
+    let res = app_orchestrate(name, port, 21)
+    return res.outcome
+}
+
+func app_run_state(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
 }
 
 func app_run_configured(name, port) {
