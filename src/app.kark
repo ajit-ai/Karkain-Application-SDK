@@ -174,6 +174,69 @@ func app_context_config_has(ctx, config_name) {
     return app_config_has(config_name)
 }
 
+// AppConfig represents a configuration profile for application execution.
+// Instances are immutable and can be converted to AppContext for runtime use.
+type AppConfig struct { name string, port int, service_id int, service_input int, debug bool }
+
+// Profile identifiers.
+const (
+    config_default   = 0
+    config_development = 1
+    config_production   = 2
+)
+
+// app_config_default: construct a default configuration profile.
+// Service ID 0, service input 21, debug mode disabled.
+func app_config_default() {
+    return AppConfig{ name: "karkain-app", port: 8080, service_id: 0, service_input: 21, debug: false }
+}
+
+// app_config_development: construct a development configuration profile.
+// Service ID 1, service input 7, debug mode enabled.
+func app_config_development() {
+    return AppConfig{ name: "karkain-dev", port: 8081, service_id: 1, service_input: 7, debug: true }
+}
+
+// app_config_production: construct a production configuration profile.
+// Service ID 2, service input 21, debug mode disabled.
+func app_config_production() {
+    return AppConfig{ name: "karkain-prod", port: 8082, service_id: 2, service_input: 21, debug: false }
+}
+
+// app_config_validate: validate a configuration profile.
+// Returns 0 if valid, 1 if invalid.
+func app_config_validate(cfg) {
+    if (cfg.name == "") {
+        return 1 // invalid: empty name
+    }
+    if (cfg.port <= 0) {
+        return 1 // invalid: non-positive port
+    }
+    if (cfg.service_id < 0 || cfg.service_id > 2) {
+        return 1 // invalid: service_id out of range
+    }
+    return 0 // valid
+}
+
+// app_config_select: select a configuration profile by identifier.
+// Returns the constructed profile, or an invalid profile (empty name) if identifier is unsupported.
+func app_config_select(eid) {
+    if (eid == config_default) {
+        return app_config_default()
+    } else if (eid == config_development) {
+        return app_config_development()
+    } else if (eid == config_production) {
+        return app_config_production()
+    } else {
+        return AppConfig{ name: "", port: 0, service_id: -1, service_input: -1, debug: false } // invalid signal
+    }
+}
+
+// app_config_to_context: convert a valid configuration profile into AppContext.
+func app_config_to_context(cfg) {
+    return AppContext{ name: cfg.name, port: cfg.port, service_id: cfg.service_id, service_input: cfg.service_input }
+}
+
 // Single shared lifecycle path: create -> start -> dispatch -> shutdown.
 // Event processing is interleaved at each stage.
 // Shutdown is attempted after both successful execution and controlled

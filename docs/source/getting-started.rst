@@ -34,6 +34,16 @@ Lifecycle events are emitted at each stage of execution:
   actual service outcome.
 - **Shutdown** (event ID 5) — after the application shuts down.
 
+Configuration profiles group application settings into consistent, validated
+structures that can be used to construct application execution context.
+
+- **Default profile** (identifier 0): application name ``karkain-app``, port 8080,
+  service ID 0 (built-in demonstration), service input 21, debug mode disabled.
+- **Development profile** (identifier 1): application name ``karkain-dev``, port 8081,
+  service ID 1 (service A), service input 7, debug mode enabled.
+- **Production profile** (identifier 2): application name ``karkain-prod``, port 8082,
+  service ID 2 (service B), service input 21, debug mode disabled.
+
 Each scenario requires the corresponding environment variable(s) to be set
 in the host PowerShell session before running the command:
 
@@ -77,6 +87,15 @@ Scenario 3 — invalid configuration:
    Similarly, ``KARKAIN_APP_SERVICE_INPUT = "99"`` (unrecognized input)
    yields ``[ERROR] invalid service input``.
 
+Configuration profiles can be constructed and validated through the SDK's
+profile APIs before execution:
+
+.. code-block:: karkain
+
+   let cfg = app_config_select(1)   // development profile
+   let valid = app_config_validate(cfg)
+   let ctx = app_config_to_context(cfg)
+
 Run the SDK tests:
 
 .. code-block:: bash
@@ -105,6 +124,11 @@ of ``app_run``, ``app_run_state``, ``app_run_service``, ``app_dispatch``,
    Dispatch is static: service identifiers are integers routed by a
    conditional chain. Function-value / callback dispatch and dynamic
    registration are not supported on the Karkain v1.2.x line.
+
+   Configuration profiles provide a static, compile-time determined set of
+   profiles (identifiers 0, 1, 2) that can be selected and validated before
+   application execution. They are not a dynamic configuration loader or
+   environment detection mechanism.
 
    The service context ``AppContext`` carries application metadata
    (name, port, service ID and input) to handlers through the

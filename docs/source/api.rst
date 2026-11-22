@@ -123,6 +123,47 @@ The following integer constants are exported for reference:
 - ``event_after_dispatch`` (4) — after service dispatch
 - ``event_shutdown`` (5) — application shutdown
 
+Configuration profile API
+-------------------------
+
+* ``AppConfig`` -- structure representing a configuration profile for
+  application execution. Instances are immutable and can be converted to
+  ``AppContext`` for runtime use. Fields:
+
+  - ``name`` -- application name (string)
+  - ``port`` -- application port (int)
+  - ``service_id`` -- selected service identifier (int)
+  - ``service_input`` -- caller-provided service input (int)
+  - ``debug`` -- debug mode setting (bool)
+
+* ``app_config_default()`` -- construct a default configuration profile.
+  Service ID 0, service input 21, debug mode disabled.
+
+* ``app_config_development()`` -- construct a development configuration
+  profile. Service ID 1, service input 7, debug mode enabled.
+
+* ``app_config_production()`` -- construct a production configuration
+  profile. Service ID 2, service input 21, debug mode disabled.
+
+* ``app_config_validate(cfg)`` -- validate a configuration profile.
+  Returns ``0`` if valid, ``1`` if invalid. Validation rules:
+
+  - ``name`` must not be empty
+  - ``port`` must be positive
+  - ``service_id`` must be in range ``0``\dots``2``
+
+* ``app_config_select(eid)`` -- select a configuration profile by
+  identifier. Returns the constructed profile, or an invalid profile
+  (empty name) if the identifier is unsupported. Profile identifiers:
+
+  - ``config_default`` (0) — default profile
+  - ``config_development`` (1) — development profile
+  - ``config_production`` (2) — production profile
+
+* ``app_config_to_context(cfg)`` -- convert a valid configuration profile
+  into ``AppContext``. Returns an ``AppContext`` with the profile's name,
+  port, service_id, and service_input fields.
+
 Dispatch is static, not dynamic. The service identifier meanings and
 handler calculations are unchanged from the preceding dispatch slice.
 
