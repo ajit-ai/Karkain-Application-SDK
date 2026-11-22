@@ -3,8 +3,9 @@
 // Initial implementation boundary for the first working product. This module
 // wires the verified Karkain capability surface (std.log, std.env) into the
 // shape an application needs: structured logging, environment-driven
-// configuration and the first lifecycle slice (create / start / shutdown /
-// service) built only on verified Karkain v1.2.x language features.
+// configuration and the application lifecycle orchestration
+// (create / start / service / shutdown) built only on verified Karkain
+// v1.2.x language features.
 //
 // It does not claim lifecycle / service / persistence capabilities beyond this
 // slice that are BLOCKED or NOT-TESTED on the Karkain v1.2.x line.
@@ -13,6 +14,8 @@ import std.log
 import std.env
 
 type AppState struct { name string, port int, started bool }
+
+type AppOutcome struct { state AppState, outcome Result }
 
 func app_create(name, port) {
     return AppState{ name: name, port: port, started: false }
@@ -35,12 +38,21 @@ func app_service(n) {
     return Ok(n * 2)
 }
 
-func app_run(name, port) {
+func app_orchestrate(name, port, service_input) {
     let s = app_create(name, port)
     let s2 = app_start(s)
-    let outcome = app_service(21)
+    let outcome = app_service(service_input)
     let s3 = app_shutdown(s2)
-    return outcome
+    return AppOutcome{ state: s3, outcome: outcome }
+}
+
+func app_run(name, port) {
+    let res = app_orchestrate(name, port, 21)
+    return res.outcome
+}
+
+func app_run_state(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
 }
 
 func app_log_info(msg) {

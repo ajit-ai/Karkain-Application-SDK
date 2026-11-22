@@ -13,13 +13,27 @@ lists its initial functions and their verified Karkain capability basis.
 Application lifecycle API
 -------------------------
 
-The first implementation slice adds the smallest reliable lifecycle surface on
-top of verified Karkain v1.2.x language features (struct state, functions with
+The implementation slices add the smallest reliable lifecycle surface on top of
+verified Karkain v1.2.x language features (struct state, functions with
 inferred returns, ``Result`` values, ``match``).
 
-* ``app_run(name, port)`` -- orchestrate the verified lifecycle slice:
-  create state -> start -> run service -> shutdown, returning the final
-  service outcome (``Ok`` payload on success, ``Err`` on controlled failure).
+* ``app_run_state(name, port, service_input)`` -> ``AppOutcome`` -- orchestrate
+  the verified lifecycle slice and return both the final application state and
+  the service execution outcome:
+
+  - create state -> start -> run service -> shutdown,
+  - final state: ``AppState`` after shutdown (``started = false``),
+  - outcome: ``Ok(payload)`` on successful service execution, ``Err`` on
+    controlled service failure (error preserved).
+
+* ``app_run(name, port)`` -> outcome -- backward-compatible orchestration
+  entry point that runs the same lifecycle (with the SDK demonstration service
+  input) and returns only the final service outcome (``Ok`` payload on success,
+  ``Err`` on controlled failure).
+
+* ``app_orchestrate(name, port, service_input)`` -> ``AppOutcome`` -- shared
+  internal orchestration returning final state plus outcome.
+
 * ``app_create(name, port)`` -- create application state
   (``AppState{ name, port, started }`` with ``started = false``).
 * ``app_start(state)`` -- transition state to ``started = true``.
