@@ -15,20 +15,20 @@ func test_app_math_negative() {
 
 // Application SDK orchestration contract tests (self-contained unit).
 
-type AppState struct { name string, port int, started bool }
+type AppState struct { name string, port int, started bool, running bool }
 
 type AppOutcome struct { state AppState, outcome Result }
 
 func app_create(name, port) {
-    return AppState{ name: name, port: port, started: false }
+    return AppState{ name: name, port: port, started: false, running: false }
 }
 
 func app_start(s AppState) {
-    return AppState{ name: s.name, port: s.port, started: true }
+    return AppState{ name: s.name, port: s.port, started: true, running: true }
 }
 
 func app_shutdown(s AppState) {
-    return AppState{ name: s.name, port: s.port, started: false }
+    return AppState{ name: s.name, port: s.port, started: false, running: false }
 }
 
 func app_service(n) {
@@ -44,24 +44,43 @@ func app_orchestrate(name, port, service_input) {
     return AppOutcome{ state: s3, outcome: outcome }
 }
 
+func app_run_service(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
+}
+
+func app_run_state(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
+}
+
 func app_run(name, port) {
     let res = app_orchestrate(name, port, 21)
     return res.outcome
 }
 
-func test_app_orchestrate_success() {
-    let res = app_orchestrate("kapp", 8080, 21)
+func test_app_run_service_success() {
+    let res = app_run_service("kapp", 8080, 21)
     let st = res.state
     let out = res.outcome
     let v = out?
     assert_eq(v, 42)
     assert(st.started == false)
+    assert(st.running == false)
 }
 
-func test_app_orchestrate_failure_shutdown() {
-    let res = app_orchestrate("kapp", 8080, -5)
+func test_app_run_service_failure_shutdown() {
+    let res = app_run_service("kapp", 8080, -5)
     let st = res.state
     assert(st.started == false)
+    assert(st.running == false)
+}
+
+func test_app_run_state_backcompat() {
+    let res = app_run_state("kapp", 8080, 21)
+    let st = res.state
+    let out = res.outcome
+    let v = out?
+    assert_eq(v, 42)
+    assert(st.running == false)
 }
 
 func test_app_run_backcompat() {

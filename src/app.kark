@@ -13,20 +13,20 @@
 import std.log
 import std.env
 
-type AppState struct { name string, port int, started bool }
+type AppState struct { name string, port int, started bool, running bool }
 
 type AppOutcome struct { state AppState, outcome Result }
 
 func app_create(name, port) {
-    return AppState{ name: name, port: port, started: false }
+    return AppState{ name: name, port: port, started: false, running: false }
 }
 
 func app_start(s AppState) {
-    return AppState{ name: s.name, port: s.port, started: true }
+    return AppState{ name: s.name, port: s.port, started: true, running: true }
 }
 
 func app_shutdown(s AppState) {
-    return AppState{ name: s.name, port: s.port, started: false }
+    return AppState{ name: s.name, port: s.port, started: false, running: false }
 }
 
 func app_config_name(s AppState) {
@@ -44,6 +44,10 @@ func app_orchestrate(name, port, service_input) {
     let outcome = app_service(service_input)
     let s3 = app_shutdown(s2)
     return AppOutcome{ state: s3, outcome: outcome }
+}
+
+func app_run_service(name, port, service_input) {
+    return app_orchestrate(name, port, service_input)
 }
 
 func app_run(name, port) {

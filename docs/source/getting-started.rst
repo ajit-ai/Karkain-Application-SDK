@@ -21,9 +21,9 @@ Build and run the SDK example:
 
    karkain run examples/hello.kark
 
-The example orchestrates the application through ``app_run_state``: it creates
-application state, starts the application, runs the service, shuts down and
-handles the final outcome (``Ok`` / ``Err``).
+The example orchestrates the application through ``app_run_service``: it creates
+application state, starts the application, runs the caller-controlled service,
+shuts down and handles the final outcome (``Ok`` / ``Err``).
 
 Run the SDK tests:
 

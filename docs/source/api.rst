@@ -17,27 +17,31 @@ The implementation slices add the smallest reliable lifecycle surface on top of
 verified Karkain v1.2.x language features (struct state, functions with
 inferred returns, ``Result`` values, ``match``).
 
-* ``app_run_state(name, port, service_input)`` -> ``AppOutcome`` -- orchestrate
-  the verified lifecycle slice and return both the final application state and
-  the service execution outcome:
+* ``app_run_service(name, port, service_input)`` -> ``AppOutcome`` -- the
+  configurable service execution contract: create state -> start -> execute
+  service with the caller-supplied input -> shutdown, returning the final
+  application state and the service outcome:
 
-  - create state -> start -> run service -> shutdown,
-  - final state: ``AppState`` after shutdown (``started = false``),
+  - final state: ``AppState`` after shutdown (``started = false``,
+    ``running = false``),
   - outcome: ``Ok(payload)`` on successful service execution, ``Err`` on
     controlled service failure (error preserved).
 
-* ``app_run(name, port)`` -> outcome -- backward-compatible orchestration
-  entry point that runs the same lifecycle (with the SDK demonstration service
-  input) and returns only the final service outcome (``Ok`` payload on success,
-  ``Err`` on controlled failure).
+* ``app_run_state(name, port, service_input)`` -> ``AppOutcome`` -- backward
+  compatible orchestration entry point returning final state plus outcome.
 
-* ``app_orchestrate(name, port, service_input)`` -> ``AppOutcome`` -- shared
-  internal orchestration returning final state plus outcome.
+* ``app_run(name, port)`` -> outcome -- backward compatible entry point that
+  runs the same service execution (with the SDK demonstration service input)
+  and returns only the final service outcome (``Ok`` payload on success, ``Err``
+  on controlled failure).
 
 * ``app_create(name, port)`` -- create application state
-  (``AppState{ name, port, started }`` with ``started = false``).
-* ``app_start(state)`` -- transition state to ``started = true``.
-* ``app_shutdown(state)`` -- transition state to ``started = false``.
+  (``AppState{ name, port, started, running }`` with ``started = false``,
+  ``running = false``).
+* ``app_start(state)`` -- transition state into the running phase
+  (``started = true``, ``running = true``).
+* ``app_shutdown(state)`` -- transition state to stopped
+  (``started = false``, ``running = false``).
 * ``app_config_name(state)`` -- read the configured application name.
 * ``app_service(n)`` -- run the service: ``Ok(n * 2)`` on success, ``Err`` on
   controlled failure.
