@@ -228,3 +228,57 @@ func test_app_run_service_failure_shutdown() {
     let out = res.outcome
     assert(err_is(out, "service failure: negative input"))
 }
+
+// Context-aware dispatch verification.
+
+// Context available through AppState in AppOutcome:
+// - res.state.name gives the application name
+// - res.state.port gives the port
+
+// 13: application name from dispatch state.
+func test_dispatch_state_name() {
+    let res = app_dispatch("kapp", 8080, 1, 21)
+    let name = res.state.name
+    assert(name == "kapp")
+}
+
+// 14: application port from dispatch state.
+func test_dispatch_state_port() {
+    let res = app_dispatch("kapp", 8080, 1, 21)
+    let port = res.state.port
+    assert(port == 8080)
+}
+
+// 15: service outcome from service A dispatch.
+func test_dispatch_service_outcome_a() {
+    let res = app_dispatch("kapp", 8080, 1, 21)
+    let out = res.outcome?
+    assert_eq(out, 42)
+}
+
+// 16: service outcome from service B dispatch.
+func test_dispatch_service_outcome_b() {
+    let res = app_dispatch("kapp", 8080, 2, 21)
+    let out = res.outcome?
+    assert_eq(out, 63)
+}
+
+// 17: independent dispatches have separate state.
+func test_dispatch_independent_states() {
+    let res1 = app_dispatch("app1", 8080, 1, 21)
+    let res2 = app_dispatch("app2", 9090, 2, 21)
+    let v1 = res1.outcome?
+    let v2 = res2.outcome?
+    assert_eq(v1, 42)
+    assert_eq(v2, 63)
+}
+
+// 18: handler failure with dispatch.
+func test_dispatch_handler_failure() {
+    let res = app_dispatch("kapp", 8080, 1, -3)
+    let out = res.outcome?
+    assert(err_is(out, "service a failure: negative input"))
+    let st = res.state
+    assert(st.started == false)
+    assert(st.running == false)
+}

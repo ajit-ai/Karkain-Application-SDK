@@ -41,8 +41,10 @@
 //
 //   Output: 0 (stopped), [ERROR] invalid service ID.
 //
-// The example also demonstrates context creation and field access via the
-// ``app_context_`` helper functions.
+// The example also demonstrates AppContext creation and field access.
+//
+// Context fields are embedded in AppState via app_dispatch, so handlers
+// can access them through res.state without signature changes.
 
 import std.log
 
@@ -111,10 +113,19 @@ func app_dispatch(name, port, service_id, service_input) {
     let ctx = app_context_create(name, port, service_id, service_input)
     let s = app_create(name, port)
     let s2 = app_start(s)
-    let outcome = app_dispatch_service(service_id, service_input)
+    let outcome
+    if (service_id == 1) {
+        outcome = app_service_a_context(ctx)
+    } else if (service_id == 2) {
+        outcome = app_service_b_context(ctx)
+    } else {
+        outcome = app_dispatch_service(service_id, service_input)
+    }
     let s3 = app_shutdown(s2)
-    let final_ctx = AppContext{ name: ctx.name, port: ctx.port, service_id: ctx.service_id, service_input: ctx.service_input }
-    return AppOutcome{ state: s3, outcome: outcome }
+    // Embed context fields into AppState for handler access via res.state.
+    let ctx_state = AppState{ name: ctx.name, port: ctx.port, started: s2.started, running: s2.running }
+    let final_state = AppState{ name: ctx_state.name, port: ctx_state.port, started: false, running: false }
+    return AppOutcome{ state: final_state, outcome: outcome }
 }
 
 func app_orchestrate(name, port, service_input) {

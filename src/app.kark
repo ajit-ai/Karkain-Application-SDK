@@ -48,6 +48,26 @@ func app_service_b(n) {
     return Ok(n * 3)
 }
 
+// Context-aware service handler A: reads service input from the application
+// context and uses it in its calculation. The service calculation (double the
+// input) is preserved; the input is now obtained from the context rather than
+// as a separate function parameter.
+func app_service_a_context(ctx) {
+    let n = ctx.service_input
+    if (n < 0) { return Err("service a failure: negative input") }
+    return Ok(n * 2)
+}
+
+// Context-aware service handler B: reads service input from the application
+// context and uses it in its calculation. The service calculation (triple the
+// input) is preserved; the input is now obtained from the context rather than
+// as a separate function parameter.
+func app_service_b_context(ctx) {
+    let n = ctx.service_input
+    if (n < 0) { return Err("service b failure: negative input") }
+    return Ok(n * 3)
+}
+
 // Static service-identifier dispatch. Verified on the Karkain v1.2.x line:
 // integer identifiers routed by a conditional chain. Function-value /
 // callback dispatch is NOT supported (verified C compilation failure), so
@@ -158,9 +178,17 @@ func app_context_config_has(ctx, config_name) {
 // Shutdown is attempted after both successful execution and controlled
 // handler failure; the service outcome takes error precedence.
 func app_dispatch(name, port, service_id, service_input) {
+    let ctx = app_context_create(name, port, service_id, service_input)
     let s = app_create(name, port)
     let s2 = app_start(s)
-    let outcome = app_dispatch_service(service_id, service_input)
+    let outcome
+    if (service_id == 1) {
+        outcome = app_service_a_context(ctx)
+    } else if (service_id == 2) {
+        outcome = app_service_b_context(ctx)
+    } else {
+        outcome = app_dispatch_service(service_id, service_input)
+    }
     let s3 = app_shutdown(s2)
     return AppOutcome{ state: s3, outcome: outcome }
 }
