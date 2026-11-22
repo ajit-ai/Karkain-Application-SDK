@@ -162,7 +162,65 @@ Configuration profile API
 
 * ``app_config_to_context(cfg)`` -- convert a valid configuration profile
   into ``AppContext``. Returns an ``AppContext`` with the profile's name,
-  port, service_id, and service_input fields.
+  port, service_id, service_input, and debug fields.
+
+Application context API
+-----------------------
+
+* ``AppContext`` -- structure carrying application metadata and
+  service-specific information to service handlers. Instances are
+  independently created for each dispatch and are immutable after
+  construction. The context fields are also reflected in the ``AppState``
+  returned as part of ``AppOutcome``, so handlers can access them without
+  signature changes. The ``debug`` flag enables runtime diagnostics.
+
+  - ``name`` -- application name (string)
+  - ``port`` -- application port (int)
+  - ``service_id`` -- selected service identifier (int)
+  - ``service_input`` -- caller-provided service input (int)
+  - ``debug`` -- debug mode setting (bool); when true, diagnostic
+    helpers enable debug-specific reporting
+
+* ``app_context_create(name, port, service_id, service_input, debug)`` --
+  create a new ``AppContext`` instance with the given metadata and debug
+  setting.
+
+* ``app_context_config_get(ctx, config_name, default_val)`` -- look up an
+  environment configuration value through the ``ctx`` context, delegating to
+  the SDK module's ``app_config_get`` wrapper. Returns the variable value or
+  ``default_val`` if the variable is absent.
+
+* ``app_context_config_has(ctx, config_name)`` -- check whether an environment
+  configuration variable is set, through the SDK module's ``app_config_has``
+  wrapper. Returns ``true`` if the variable exists, ``false`` otherwise.
+
+Diagnostic contract API
+------------------------
+
+* ``app_debug_enabled(ctx)`` -- inspect whether debug mode is enabled in
+  the given context. Returns ``true`` if diagnostics are enabled, ``false``
+  otherwise.
+
+* ``app_diagnostic_status(ctx, event_id)`` -- return a diagnostic status
+  code for the given event and context. When debug is false, returns 0
+  (diagnostics disabled). When debug is true, returns 1 (diagnostics
+  enabled) for recognized event identifiers.
+
+  - ``event_created`` (1) — application creation diagnostic
+  - ``event_started`` (2) — application start diagnostic
+  - ``event_before_dispatch`` (3) — before-dispatch diagnostic
+  - ``event_after_dispatch`` (4) — after-dispatch diagnostic
+  - ``event_shutdown`` (5) — shutdown diagnostic
+
+* ``app_service_a_context(ctx)`` -- context-aware service handler A.
+  Reads service input from the context and uses it in its calculation.
+  The debug flag is inspected for diagnostics; service calculation
+  (input * 2) is preserved.
+
+* ``app_service_b_context(ctx)`` -- context-aware service handler B.
+  Reads service input from the context and uses it in its calculation.
+  The debug flag is inspected for diagnostics; service calculation
+  (input * 3) is preserved.
 
 Dispatch is static, not dynamic. The service identifier meanings and
 handler calculations are unchanged from the preceding dispatch slice.
